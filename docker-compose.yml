@@ -1,0 +1,59 @@
+version: '3.7'
+
+services:
+  database:
+    container_name: 'database'
+    hostname: 'database'
+    build:
+      context: ./database/docker
+      dockerfile: Dockerfile
+      args:
+        SA_PASSWORD: 'Password1!'
+        ACCEPT_EULA: 'Y'
+        MSSQL_AGENT_ENABLED: 'true'
+        MSSQL_PID: 'Express'
+    ports:
+      - '1433:1433'
+    volumes:
+      - ./database:/usr/src/app
+    working_dir: /usr/src/app
+    command: sh -c 'chmod +x entrypoint.sh; ./entrypoint.sh & /opt/mssql/bin/sqlservr;'
+
+  user_api:
+    container_name: 'user_api'
+    image: 'node:12'
+    user: 'node'
+    working_dir: '/home/node/app'
+    volumes:
+      - ./apiserver/user:/home/node/app
+    expose:
+      - '8080'
+    command: 'npm run dev'
+    depends_on:
+      - database
+
+  company_api:
+    container_name: 'company_api'
+    image: 'node:12'
+    user: 'node'
+    working_dir: '/home/node/app'
+    volumes:
+      - ./apiserver/company:/home/node/app
+    expose:
+      - '8080'
+    command: 'npm run dev'
+    depends_on:
+      - database
+
+  nginx:
+    container_name: 'nginx'
+    restart: always
+    image: nginx:1.17.3
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/favicon.ico:/etc/nginx/html/favicon.ico
+    depends_on:
+      - user_api
+      - company_api
